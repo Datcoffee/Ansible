@@ -1,0 +1,80 @@
+#1.0 Ansile dùng để làm gì?
+#link: https://news.cloud365.vn/10-phut-ansible-co-ban-phan-1-ansile-dung-de-lam-gi/ 
+IaC: Infrastructure As Code: Làm hạ tầng giống như làm lập trình.
+#2.0 Dựng LAB để thực hành ansible.
+#link: https://news.cloud365.vn/10-phut-ansible-co-ban-phan-2-dung-lab-de-thuc-hanh-ansible/ 
+# Mô hình và IP Planning.
+1.Ansible Server(CentOS_7).132, 2 Client CentOS_6.122,7.123, 2 Client Ubutu_16.124,18.125.
+# Cài đặt.
+1. Thiết lập hostname, IP cho các node.
+!!!!hostnamectl set-hostname [hostname]
+2. Cài đặt ansible trên node Ansible Server
+yum install -y epel-release 
+yum update -y
+yum install -y ansible
+# check version.
+ansible --version
+3. Cấu hình SSH Key và khai báo file inventory.
+- Ansible hđ theo cơ chế agentless (không cần cài đặt agent trên client để điều kiển) => sử dụng SSH => Có 2 cách để ansible điều khiển client.
++ Cách 1: username và port của SSH trong khai báo Inventory. Không khuyến cáo vì password ở dạng clear text (Nếu dùng cần phải secure cho file Inventory bằng Ansible-vault.
++ Cách 2: SSH keypair. Tạo pravite và public key trên Ansible Server và copy qua Client(Host). 
+4. Tạo SSH key cho các node.
+# Tại Ansible Server tạo SSH key.
+ssh-keygen
+# Thực hiện các thao tác Enter và để mặc định các tùy chọn khi lab.
+# Thực hiện copy file key sang các node client còn lại.
+Ex: ssh-copy-id root@192.168.80.123
+# Ấn Yes và nhập mật khẩu root của node.
+# Làm tương tự với node khác.
+# CHECK: Từ Ansible Server, thử SSH sang các node, nếu không bị hỏi mật khẩu thì ta đã sử dụng ssh key thành công.
+# NOTE: Dùng lệnh exit sau khi đăng nhập ở từng mode.
+5. Khai báo file inventory.
+# Trên Ansible Server.
+# Mặc định thì danh sách các host mà AnsibleServer điều khiển sẽ nằm ở file /etc/ansible/host.
+# File mặc định sẽ chứa các khai báo mẫu, thực hiện sao lưu lại và khai báo file mới theo bài LAB.
+mv /etc/ansible/hosts /etc/ansible/hosts.org
+#Tạo file mới để khai báo các host
+vi /etc/ansible/hosts
+# Nội dung của file sẽ có dạng như sau.
+Ex: 
+192.168.80.122
+[centos6]
+192.168.80.123
+[]: để khai báo group. (group tự quy hoạch cho phù hợp)
+# Thực hiện kiểm tra danh sách host đã đươc khai báo trong file inventory.
+ ansible all --list-hosts. # Liệt kê all các host nằm trong Inventory bất kể nằm trong group nào.
+# Nếu chúng ta chỉ muốn kiểm tra các host trong group [centos]
+ansible centos6 --list-host.
+# Một file inventory tương đối hoàn chỉnh sẽ có định đạng như sau.
+client1 ansible_host=192.168.80.122 ansible_port=22 ansible_user=root
+
+[centos6]
+client2 ansible_host=192.168.80.123 ansible_port=22 ansible_user=root
+
+[ubuntu]
+client3 ansible_host=192.168.80.124 ansible_port=22 ansible_user=root
+client4 ansible_host=192.168.80.125 ansible_port=22 ansible_user=root
++ client1, client2, client3, client4: Tương ứng là các hostname của các node.
++ ansible_host: Địa chỉ IP của node client tương ứng.
++ ansible_port: Port của SSH phía client, nếu ta thay đổi thì sẽ chỉnh lại cho đúng.
++ ansible_user: Là username của client mà AnsibleServer sẽ dùng để tương tác, trong bước trên tôi sử dụng là user root và thông qua SSH Key.
+6. Sử dụng một số lệnh kiểm tra cơ bản.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
