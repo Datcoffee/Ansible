@@ -1,23 +1,28 @@
 #1.0 Ansile dùng để làm gì?
-#link: https://news.cloud365.vn/10-phut-ansible-co-ban-phan-1-ansile-dung-de-lam-gi/ 
+@link: https://news.cloud365.vn/10-phut-ansible-co-ban-phan-1-ansile-dung-de-lam-gi/ 
 IaC: Infrastructure As Code: Làm hạ tầng giống như làm lập trình.
+
 #2.0 Dựng LAB để thực hành ansible.
-#link: https://news.cloud365.vn/10-phut-ansible-co-ban-phan-2-dung-lab-de-thuc-hanh-ansible/ 
+@link: https://news.cloud365.vn/10-phut-ansible-co-ban-phan-2-dung-lab-de-thuc-hanh-ansible/ 
 # Mô hình và IP Planning.
 1.Ansible Server(CentOS_7).132, 2 Client CentOS_6.122,7.123, 2 Client Ubutu_16.124,18.125.
+
 # Cài đặt.
 1. Thiết lập hostname, IP cho các node.
 !!!!hostnamectl set-hostname [hostname]
+
 2. Cài đặt ansible trên node Ansible Server
 yum install -y epel-release 
 yum update -y
 yum install -y ansible
 # check version.
 ansible --version
+
 3. Cấu hình SSH Key và khai báo file inventory.
 - Ansible hđ theo cơ chế agentless (không cần cài đặt agent trên client để điều kiển) => sử dụng SSH => Có 2 cách để ansible điều khiển client.
 + Cách 1: username và port của SSH trong khai báo Inventory. Không khuyến cáo vì password ở dạng clear text (Nếu dùng cần phải secure cho file Inventory bằng Ansible-vault.
 + Cách 2: SSH keypair. Tạo pravite và public key trên Ansible Server và copy qua Client(Host). 
+
 4. Tạo SSH key cho các node.
 # Tại Ansible Server tạo SSH key.
 ssh-keygen
@@ -28,6 +33,7 @@ Ex: ssh-copy-id root@192.168.80.123
 # Làm tương tự với node khác.
 # CHECK: Từ Ansible Server, thử SSH sang các node, nếu không bị hỏi mật khẩu thì ta đã sử dụng ssh key thành công.
 # NOTE: Dùng lệnh exit sau khi đăng nhập ở từng mode.
+
 5. Khai báo file inventory.
 # Trên Ansible Server.
 # Mặc định thì danh sách các host mà AnsibleServer điều khiển sẽ nằm ở file /etc/ansible/host.
@@ -59,6 +65,92 @@ client4 ansible_host=192.168.80.125 ansible_port=22 ansible_user=root
 + ansible_port: Port của SSH phía client, nếu ta thay đổi thì sẽ chỉnh lại cho đúng.
 + ansible_user: Là username của client mà AnsibleServer sẽ dùng để tương tác, trong bước trên tôi sử dụng là user root và thông qua SSH Key.
 6. Sử dụng một số lệnh kiểm tra cơ bản.
+
+# Tùy chọn -m(module): ping,tracert,...
+Ex: ansible all -m ping
+# ping với Group
+Ex: ansible centos6 -m ping
+
+7. Sử dụng các module cơ bản của ansilbe trong chế độ tương tác.
+# Chế độ tương tác của ansible tạm hiểu là chế độ dùng các lệnh đơn, ngay sau khi thực hiện lệnh thì sẽ có output để quan sát.
+- Kiểm tra và xác nhận các config.
+
+8. Sử dụng module command
+# kiểm tra uptime.
+ansible all -m command -a "ten_cau_lenh_module_command_ho_tro"
+Ex: ansible centos6 -m command -a "uptime"
+Ex1: ansible all -m command -a "uptime"
+# Trả về kết quả của lệnh ls -alh ở từng node.
+Ex: ansible all -m command -a "ls -alh"
+# Trả về phiên bản kernel.
+Ex: ansible all -m command -a "uname -rms"
+#########Tính năng module là cho phép thực hiện lệnh của Linux từ xa#########
+
+9. Module setup trong ansible.
+# Kiểm tra các thông tin tổng quát về hệ điều hành của các node.
+# Kiểm tra distro của các host.
+Ex: ansible all -m setup -a 'filter=ansible_distribution'
+NOTE:  -a để lọc kết quả của lệnh ansible all -m setup bởi vì kết quả lệnh dài và nhiều tham số.
+# Để liệt kê ra các địa chỉ IPv4 trên các node.
+Ex: ansible all -m setup -a 'filter=ansible_default_ipv4'
+
+#3.0 Hướng dẫn sử dụng ad-hoc command trong ansible.
+- Chế độ ad-hoc chính là sử dụng từng câu lệnh đơn mà ansible hỗ trợ.
+- Với ad-hoc command mà ansible cung cấp. Ta thực hiện các task đơn(y/c thực hiện độc lập) để ra lệnh cho hạ tầng(client quản lý bởi ansible)
+thực hiện các y/c rời rác khi quản lý client.
+
+# 1. Tại sao lại dùng ad-hoc command trong ansible?
+- Khi vận hành hệ thống, bạn thường xuyên phải lặp đi các thao tác rất cơ bản ví dụ như:
+ + Cần phải khởi động lại OS
+ + Cần phải khởi động lại mysql hoặc đơn giản là cần phải update các gói phần mềm phổ thông (VIM, WGET ….) trên hàng loạt các máy chủ khác nhau (CentOS, Ubuntu …).
+ + Hoặc phải kiểm tra trạng thái của các services chẳng hạn.
+ ......
+# 2. Thực hành ad-hoc command trong ansible.
+- Thông tin của các host client sau khi cấu hình keypair ở file /root/.ssh/known_hosts.
+- Nội dung của file /etc/ansible/hosts có dạng.
+Ex: 
+192.168.80.122
+
+[centos6]
+192.168.80.123
+
+[ubuntu]
+192.168.80.124
+192.168.80.125
+
+# 3. Thực hiện các câu lệnh ad-hoc.
+- Cú pháp: ansible [pattern] -m [module] -a "[module options]"
+
+# 3.1 Thực hiện kiểm tra dung lượng RAM của client.
+Ex: ansible all -a "free -m"   # Có thể thay all bằng group.
+
+# 3.2 Thực hiện reboot hàng loạt các client.
+Ex: ansible ubuntu -a "init 6" # Có thể thay ubutu bằng all.
+
+# 3.3 Thực hiện cài đặt gói ứng dụng hàng loạt.
+- Các task cài đặt đơn lẻ cũng có thể dùng ad-hoc command của ansible để triển khai.
+# Cài apache trên máy có hđh là ubutu.
+Ex: ansible ubuntu -m apt -a "name=apache2 state=latest"  # sử dụng module apt mà ansible hỗ trợ cho ubutu
+# Check kết quả
+Ex: ansible ubuntu -a "apache2 -v"
+# Thực hiện cài VIM.
+Ex: ansible all -m apt -a "name=vim state=latest"
+
+# 3.4 Sử dụng ad-hoc command để thu thập thông tin của client.
+Ex: ansible all -m setup
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
