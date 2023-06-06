@@ -347,30 +347,166 @@ VI. Chạy một Playbook.
 NOTE: Ansible duyệt qua 1 task mà task đó đã được thực hiện trước đó rồi và không có gì thay đổi thì Ansible sẽ đi tới task tiếp theo mà không phải mất công chạy lại task đó nữa
 
 
- 
+##### 5. Viết Playbook cài đặt WordPress trên CentOS 7 #########
+I. Mô hình.
+II. Các công việc cần làm và module liên quan.
+2.1. Các công việc cần làm.
+- cài đặt WordPress trên CentOS 7:
++ Cài đặt LAMP
++ Đảm bảo các service bật và các port được thông.
++ Cài đặt WordPress
++ Tạo cơ sở dữ liệu, người dùng cho WordPress
++ Update version PHP nhằm tránh lỗi version PHP cũ không được hỗ trợ ở WordPress bản mới.
+2.2. Các module liên quan.
+#Các module sẽ sử dụng.
+yum, service, firewalld, get_url, unarchive, shell, mysql_db, mysql_user, replace.
 
-   
-   
+III. Viết Playbook.
+3.1. Khai báo.
+---
+- hosts: centos7
+  remote_user: root
+3.2. Cài đặt LAMP.
+tasks:
+  - name: Install LAMP
+    yum:
+      name: '{{item}}'
+      state: present
+    with_items:
+    - httpd
+    - mariadb-server
+    - mariadb
+    - php
+    - php-mysql
+    - php-fpm
+    
+3.3. Đảm bảo các service cần thiết được bật và các port được thông.
+- name: Ensure service enabled and started
+    service:
+      name: '{{item}}'
+      state: started
+      enabled: True
+    with_items:
+    - mariadb
+    - httpd
+  - name: Ensure HTTP and HTTPS can pass the firewall
+    firewalld:
+      service: '{{item}}'
+      state: enabled
+      permanent: True
+      immediate: True
+    become: True
+    with_items:
+    - http
+    - https
 
+NOTE: Tìm hiểu module firewalld và hãy thử viết task “Ensure HTTP and HTTPS can pass the firewall” theo một cách khác nhé.
+3.4. Tải, giải nén WordPress.
+  - name: Install php-gd,rsync
+    yum:
+      name: '{{item}}'
+      state: present
+    with_items:
+    - php-gd
+    - rsync
+  - name: Restart httpd
+    service:
+      name: httpd
+      state: restarted
+  - name: Down wordpress
+    get_url:
+      url: http://wordpress.org/wordpress-5.3.2.tar.gz
+      dest: /root
+  - name: extract wordpress
+    unarchive:
+      src: /root/wordpress-5.3.2.tar.gz
+      dest: /root
+      remote_src: yes
+  - name: rsync wordpress
+    shell: rsync -avP /root/wordpress/ /var/www/html/
+  - name: Create folder uploads
+    shell: mkdir /var/www/html/wp-content/uploads
+  - name: Set user:group
+    shell: chown -R apache:apache /var/www/html/*
 
+Tiến hành tải, giải nén WordPress và sao chép nội dung sang /var/www/html/.
 
+3.5. Tạo cơ sở dữ liệu, người dùng cho WordPress.
 
+  - name: Install MySQL-python
+    yum:
+      name: MySQL-python
+      state: present
+  - name: Create database wordpress
+    mysql_db:
+      name: wordpress
+      state: present
+  - name: Create user wordpressuser
+    mysql_user:
+      name: wordpressuser
+      host: localhost
+      password: wordpresspassword
+      priv: 'wordpress.*:ALL'
+      state: present
 
+  - name: Backup file config wp
+    shell: cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+  - name: Config db name
+    replace:
+      path: /var/www/html/wp-config.php
+      regexp: 'database_name_here'
+      replace: 'wordpress'
+  - name: Config username
+    replace:
+      path: /var/www/html/wp-config.php
+      regexp: 'username_here'
+      replace: 'wordpressuser'
+  - name: Config password
+    replace:
+      path: /var/www/html/wp-config.php
+      regexp: 'password_here'
+      replace: 'wordpresspassword'
+      
+Ở đây chúng ta thực hiện tạo:
+database: wordpress
+username: wordpressuser
+password: wordpresspassword
 
+Sau đó tiến hành sửa file config: wp-config.php của WordPress theo các thông tin vừa tạo phía trên.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+3.6. Update version PHP.
+ - name: Config version PHP
+    yum:
+      name: '{{item}}'
+      state: present
+    with_items:
+    - epel-release
+    - yum-utils
+    - http://rpms.remirepo.net/enterprise/remi-release-7.rpm
+  - name: Config version PHP
+    shell: yum-config-manager --enable remi-php72
+  - name: Config version PHP
+    yum:
+      name: '{{item}}'
+      state: present
+    with_items:
+    - php
+    - php-common
+    - php-opcache
+    - php-mcrypt
+    - php-cli
+    - php-gd
+    - php-curl
+    - php-mysqlnd
+  - name: Restart Apache
+    service:
+      name: httpd
+      state: restarted
+    
+IV. Chạy Playbook.
+- Ghép các phần phía trên lại thành 1 file yml hoàn chỉnh và chạy nó.
+- Lưu với tên: playbook-wordpress.yml
+- Chạy: ansible-playbook -i /etc/ansible/hosts playbook-wordpress.yml
 
 
 
